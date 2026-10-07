@@ -15,27 +15,49 @@
 
 #include <stm32g4xx_hal.h>
 
-
-void heartbeat_task(void *pvParameters) {
-    (void) pvParameters;
+static void blink_port(const int ms, GPIO_TypeDef *gpio_loc, const uint16_t pin)
+{
     while(true) {
-        core_GPIO_toggle_heartbeat();
-        vTaskDelay(100 * portTICK_PERIOD_MS);
+        core_GPIO_digital_write(gpio_loc, pin, true);
+        vTaskDelay(ms / 2.0 * portTICK_PERIOD_MS);
+        core_GPIO_digital_write(gpio_loc, pin, false);
+        vTaskDelay(ms / 2.0 * portTICK_PERIOD_MS);
     }
 }
 
-int main(void) {
+static void GPIO_task_1(void *pvParameters) {
+    (void) pvParameters;
+    blink_port(1000, GPIOA, GPIO_PIN_8);
+}
+
+static void GPIO_task_2(void *pvParameters) {
+    (void) pvParameters;
+    blink_port(3000, GPIOA, GPIO_PIN_9);
+}
+
+int main() {
     HAL_Init();
 
     // Drivers
-    core_heartbeat_init(GPIOA, GPIO_PIN_8);
-    core_GPIO_set_heartbeat(GPIO_PIN_RESET);
+    // core_heartbeat_init(GPIOA, GPIO_PIN_8);
+    // core_GPIO_set_heartbeat(GPIO_PIN_RESET);
+
+    core_GPIO_init(GPIOA, GPIO_PIN_8, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
+    core_GPIO_init(GPIOA, GPIO_PIN_9, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
+    // core_GPIO_init(GPIOA, GPIO_PIN_10, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
 
     if (!core_clock_init()) error_handler();
     if (!core_CAN_init(FDCAN1, 1000000)) error_handler();
 
-    int err = xTaskCreate(heartbeat_task, "heartbeat", 1000, NULL, 4, NULL);
-    if (err != pdPASS) {
+    // int err = xTaskCreate(heartbeat_task, "heartbeat", 1000, NULL, 4, NULL);
+
+    int err1 = xTaskCreate(GPIO_task_1, "gpio1", 1000, NULL, 4, NULL);
+    if (err1 != pdPASS) {
+        error_handler();
+    }
+
+    int err2 = xTaskCreate(GPIO_task_2, "gpio2", 1000, NULL, 4, NULL);
+    if (err2 != pdPASS) {
         error_handler();
     }
 
