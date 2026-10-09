@@ -17,22 +17,22 @@
 
 #include <stm32g4xx_hal.h>
 
-static void GPIO_task_all(void* pvParameters)
-{
-    (void)pvParameters;
-    while (true)
-    {
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
-        vTaskDelay(100 * portTICK_PERIOD_MS);
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_8, false);
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_9, true);
-        vTaskDelay(100 * portTICK_PERIOD_MS);
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_9, false);
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_10, true);
-        vTaskDelay(100 * portTICK_PERIOD_MS);
-        core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
-    }
-}
+// static void GPIO_task_all(void* pvParameters)
+// {
+//     (void)pvParameters;
+//     while (true)
+//     {
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
+//         vTaskDelay(100 * portTICK_PERIOD_MS);
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_8, false);
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_9, true);
+//         vTaskDelay(100 * portTICK_PERIOD_MS);
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_9, false);
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_10, true);
+//         vTaskDelay(100 * portTICK_PERIOD_MS);
+//         core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
+//     }
+// }
 
 static void print_adc_value(void* pvParameters)
 {
@@ -44,6 +44,36 @@ static void print_adc_value(void* pvParameters)
         uint16_t potentiometer_value = 0;
         core_ADC_read_channel(GPIOB, GPIO_PIN_12, &potentiometer_value);
         rprintf("Potentiometer%d: %d %d\n", count, potentiometer_value);
+
+        //0 - 1000: turn on  1
+        if (potentiometer_value <= 1000){
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_9, false);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
+        }
+
+        // 1500 - 2000 turn on 2
+        else if (potentiometer_value >= 1500 && potentiometer_value <= 2000){
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_9, true);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
+        }
+
+        // 3000 - 4000 turn on all three
+        else if (potentiometer_value >= 3000 && potentiometer_value <= 4000)
+        {
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_9, true);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_10, true);
+        }
+
+        else
+        {
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_8, false);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_9, false);
+            core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
+        }
+
         vTaskDelay(200 * portTICK_PERIOD_MS);
     }
 }
@@ -69,11 +99,11 @@ int main()
 
     // int err = xTaskCreate(heartbeat_task, "heartbeat", 1000, NULL, 4, NULL);
 
-    int err1 = xTaskCreate(GPIO_task_all, "gpioAll", 1000, NULL, 4, NULL);
-    if (err1 != pdPASS)
-    {
-        error_handler();
-    }
+    // int err1 = xTaskCreate(GPIO_task_all, "gpioAll", 1000, NULL, 4, NULL);
+    // if (err1 != pdPASS)
+    // {
+    //     error_handler();
+    // }
 
     int err2 = xTaskCreate(print_adc_value, "print_adc", 1000, NULL, 4, NULL);
     if (err2 != pdPASS)
