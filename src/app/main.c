@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include <adc.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -12,30 +13,44 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include "rtt.h"
 
 #include <stm32g4xx_hal.h>
 
-static void blink_port(const int ms, GPIO_TypeDef *gpio_loc, const uint16_t pin)
+static void GPIO_task_all(void* pvParameters)
 {
-    while(true) {
-        core_GPIO_digital_write(gpio_loc, pin, true);
-        vTaskDelay(ms / 2.0 * portTICK_PERIOD_MS);
-        core_GPIO_digital_write(gpio_loc, pin, false);
-        vTaskDelay(ms / 2.0 * portTICK_PERIOD_MS);
+    (void)pvParameters;
+    while (true)
+    {
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_8, true);
+        vTaskDelay(100 * portTICK_PERIOD_MS);
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_8, false);
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_9, true);
+        vTaskDelay(100 * portTICK_PERIOD_MS);
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_9, false);
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_10, true);
+        vTaskDelay(100 * portTICK_PERIOD_MS);
+        core_GPIO_digital_write(GPIOA, GPIO_PIN_10, false);
     }
 }
 
-static void GPIO_task_1(void *pvParameters) {
-    (void) pvParameters;
-    blink_port(1000, GPIOA, GPIO_PIN_8);
+static void print_adc_value(void* pvParameters)
+{
+    (void)pvParameters;
+    int count = 0;
+    while (true)
+    {
+        count++;
+        uint16_t potentiometer_value = 0;
+        core_ADC_read_channel(GPIOB, GPIO_PIN_12, &potentiometer_value);
+        rprintf("Potentiometer%d: %d %d\n", count, potentiometer_value);
+        vTaskDelay(200 * portTICK_PERIOD_MS);
+    }
 }
 
-static void GPIO_task_2(void *pvParameters) {
-    (void) pvParameters;
-    blink_port(3000, GPIOA, GPIO_PIN_9);
-}
 
-int main() {
+int main()
+{
     HAL_Init();
 
     // Drivers
@@ -44,20 +59,25 @@ int main() {
 
     core_GPIO_init(GPIOA, GPIO_PIN_8, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
     core_GPIO_init(GPIOA, GPIO_PIN_9, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
-    // core_GPIO_init(GPIOA, GPIO_PIN_10, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
+    core_GPIO_init(GPIOA, GPIO_PIN_10, GPIO_MODE_OUTPUT_PP, GPIO_NOPULL);
+
+    core_ADC_init(ADC1);
+    core_ADC_setup_pin(GPIOB, GPIO_PIN_12, 0);
 
     if (!core_clock_init()) error_handler();
     if (!core_CAN_init(FDCAN1, 1000000)) error_handler();
 
     // int err = xTaskCreate(heartbeat_task, "heartbeat", 1000, NULL, 4, NULL);
 
-    int err1 = xTaskCreate(GPIO_task_1, "gpio1", 1000, NULL, 4, NULL);
-    if (err1 != pdPASS) {
+    int err1 = xTaskCreate(GPIO_task_all, "gpioAll", 1000, NULL, 4, NULL);
+    if (err1 != pdPASS)
+    {
         error_handler();
     }
 
-    int err2 = xTaskCreate(GPIO_task_2, "gpio2", 1000, NULL, 4, NULL);
-    if (err2 != pdPASS) {
+    int err2 = xTaskCreate(print_adc_value, "print_adc", 1000, NULL, 4, NULL);
+    if (err2 != pdPASS)
+    {
         error_handler();
     }
 
@@ -73,9 +93,10 @@ int main() {
 
 // Called when stack overflows from rtos
 // Not needed in header, since included in FreeRTOS-Kernel/include/task.h
-void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName) {
-    (void) xTask;
-    (void) pcTaskName;
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName)
+{
+    (void)xTask;
+    (void)pcTaskName;
 
     error_handler();
 }
